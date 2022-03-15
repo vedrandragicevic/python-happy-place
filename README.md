@@ -1,2 +1,2 @@
 # python-happy-place
-Repository used for storing useful python functions
+Branch used for storing pandas functions.
