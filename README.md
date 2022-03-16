@@ -1,2 +1,4 @@
 # python-happy-place
-Repository used for storing useful python functions. Browse the branches for more info.
+Branch used for storing requests library functions in python.
+<hr>
+'oauth20.py' script contains OAuth 2.0 implementation in python.
