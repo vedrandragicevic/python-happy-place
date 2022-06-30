@@ -1,0 +1,117 @@
+import csv
+from xml.etree.ElementTree import iterparse
+from xml.etree import ElementTree as ET
+
+
+header = ['id', 'CDDI_Link', 'Drug_id', 'Drug_name', 'Administered_Route', 'Regimen', 'Related_drugs',
+                  'Pharmacological_Activity', 'Experimental_Activity_System', 'Experimental_Activity_effect',
+                  'Experimental_Activity_entity_id', 'Experimental_Activity_entity_type',
+                  'Experimental_Activity_entity_value',
+                  'Material', 'Parameter', 'Value1', 'Range', 'Value2', 'Unit', 'Source_id', 'Source_type', 'Method',
+                  'Operator', 'Pubmed_Id', 'Related_Experimental_Models']
+
+# PARSE XML
+xml_file = 'experimental_data.xml'
+
+counter = 1
+file_counter = 1
+
+
+for event, element in iterparse(xml_file, events=("start", "end")):
+
+    if element.tag == 'Experimental_Pharmacology' and event == "end":
+
+        file_name = 'experimental_data_' + str(
+            file_counter) + '.csv'
+        out_file = open(file_name, 'a', newline='', encoding='utf-8')
+        csvfile_writer = csv.writer(out_file, delimiter='|')
+        if counter > 500000:
+            file_counter += 1
+            counter = 1
+
+        counter += 1
+        # CREATE ROW WITH PREDEFINED NULL FIELDS
+        row = ['null'] * 25
+        # APPEND DATA TO ROW AT SPECIFIC INDEX
+        row[0] = element.attrib['id']
+        print(element.attrib['id'])
+        # PREDEFINE STRINGS THAT NEED TO BE CONCATENATED LATER
+        related_drugs = ''
+        related_experiments = ''
+        for nested_child in element:
+            # CHECK IF NESTED CHILD HAS MORE CHILDREN, ELSE PROCESS ONE LINERS
+            if len(nested_child):
+                if 'Tested_Drug' in nested_child.tag:
+                    header_index = header.index('Drug_id')
+                    row[header_index] = nested_child.attrib['entry_number']
+                    for double_nested_child in nested_child:
+                        if 'Drug_Main_Name' in double_nested_child.tag:
+                            header_index = header.index('Drug_name')
+                            row[header_index] = double_nested_child.text
+
+                        elif 'Administered_Route' in double_nested_child.tag:
+                            header_index = header.index('Administered_Route')
+                            row[header_index] = double_nested_child.text
+
+                        elif 'Regimen' in double_nested_child.tag:
+                            header_index = header.index('Regimen')
+                            row[header_index] = double_nested_child.text
+
+                        elif 'Related_Products' in double_nested_child.tag:
+                            for drug in double_nested_child:
+                                drug_id = drug.attrib['entry_number']
+                                relationship = drug.attrib['relationship_type']
+                                text = drug_id + ' / ' + relationship
+                                related_drugs = related_drugs + text + '; '
+                                header_index = header.index('Related_drugs')
+                                row[header_index] = related_drugs
+
+                elif 'Experimental_Activity' in nested_child.tag:
+                    for double_nested_child in nested_child:
+                        if 'System' in double_nested_child.tag:
+                            header_index = header.index('Experimental_Activity_System')
+                            row[header_index] = double_nested_child.text
+
+                        elif 'Effect' in double_nested_child.tag:
+                            header_index = header.index('Experimental_Activity_effect')
+                            row[header_index] = double_nested_child.text
+
+                        elif 'Entity' in double_nested_child.tag:
+                            header_index = header.index('Experimental_Activity_entity_id')
+                            row[header_index] = double_nested_child.attrib['id']
+
+                            header_index = header.index('Experimental_Activity_entity_type')
+                            row[header_index] = double_nested_child.attrib['type']
+
+                            header_index = header.index('Experimental_Activity_entity_value')
+                            row[header_index] = double_nested_child.text
+
+                elif 'Related_Experimental_Models' in nested_child.tag:
+                    for double_nested_child in nested_child:
+                        related_experiments = related_experiments + double_nested_child.attrib['id'] + ', '
+                        header_index = header.index('Related_Experimental_Models')
+                        row[header_index] = related_experiments
+
+            else:
+                if 'Source' in nested_child.tag:
+                    header_index = header.index('Source_type')
+                    row[header_index] = nested_child.attrib['Type']
+
+                    header_index = header.index('Source_id')
+                    row[header_index] = nested_child.text
+
+                elif 'Tested_Drug' in nested_child.tag:
+                    header_index = header.index('Drug_id')
+                    row[header_index] = nested_child.attrib['entry_number']
+
+                else:
+                    if 'Experimental_Activity' in nested_child.tag:
+                        print(ET.tostring(nested_child))
+                    else:
+                        header_index = header.index(nested_child.tag)
+                        row[header_index] = nested_child.text
+
+        element.clear()
+        # ADD A NEW ROW TO CSV FILE
+        csvfile_writer.writerow(row)
+        out_file.close()
